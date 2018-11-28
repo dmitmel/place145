@@ -8,3 +8,9 @@ description = "/r/place clone"
 license = "MIT"
 repository = "https://github.com/dmitmel/place145.git"
 homepage = "https://github.com/dmitmel/place145"
+
+[dependencies]
+env_logger = "*"
+log = "*"
+rocket = "0.4.0-rc.1"
+ws = "*"
