@@ -1,6 +1,5 @@
 [package]
 publish = false
-edition = "2018"
 name = "place145"
 version = "0.0.0"
 authors = ["Dmytro Meleshko <dmytro.meleshko@gmail.com>"]
@@ -10,7 +9,7 @@ repository = "https://github.com/dmitmel/place145.git"
 homepage = "https://github.com/dmitmel/place145"
 
 [dependencies]
+actix = "0.7"
+actix-web = "0.7"
 env_logger = "*"
 log = "*"
-rocket = "0.4.0-rc.1"
-ws = "*"

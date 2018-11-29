@@ -1,7 +1,0 @@
-[global]
-port = 8080
-websocket_port = 8081
-
-[production]
-port = 80
-websocket_port = 81
