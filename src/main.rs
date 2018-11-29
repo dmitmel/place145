@@ -1,34 +1,28 @@
-#![feature(proc_macro_hygiene, decl_macro)]
-
 #[macro_use]
 extern crate log;
 extern crate env_logger;
 
-#[macro_use]
-extern crate rocket;
-extern crate ws;
+extern crate actix;
+extern crate actix_web;
 
-mod routes;
 mod websocket;
 
 fn main() {
+  std::env::set_var("RUST_LOG", "info");
   env_logger::init();
 
-  let server = rocket::ignite().mount("/", routes![routes::index]);
-  start_websocket(server.config());
-  server.launch();
-}
+  use actix_web::{fs, middleware, server, ws, App};
 
-fn start_websocket(config: &rocket::Config) {
-  let hostname = config.address.clone();
-  let port = config.get_int("websocket_port").unwrap() as u16;
-
-  use std::thread;
-  thread::Builder::new()
-    .name("websocket".to_string())
-    .spawn(move || {
-      let address: (&str, u16) = (&hostname, port);
-      ws::listen(address, websocket::Handler::new).unwrap()
-    })
-    .unwrap();
+  server::new(|| {
+    App::new()
+      .middleware(middleware::Logger::default())
+      .resource("/api/stream", |r| r.f(|req| ws::start(req, websocket::Ws)))
+      .handler(
+        "/",
+        fs::StaticFiles::new("static").unwrap().index_file("index.html"),
+      )
+  })
+  .bind("localhost:8080")
+  .unwrap()
+  .run();
 }
