@@ -1,10 +1,12 @@
 use actix::*;
 use actix_web::*;
 
+use State;
+
 pub struct Ws;
 
 impl Actor for Ws {
-  type Context = ws::WebsocketContext<Self>;
+  type Context = ws::WebsocketContext<Self, State>;
 }
 
 impl StreamHandler<ws::Message, ws::ProtocolError> for Ws {
