@@ -2,30 +2,34 @@ use actix_web::{HttpRequest, Query};
 
 use State;
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct GetCell {
-  x: usize,
-  y: usize,
+  pub x: usize,
+  pub y: usize,
 }
 
 pub fn get_cell(
-  (request, data): (HttpRequest<State>, Query<GetCell>),
+  (request, query): (HttpRequest<State>, Query<GetCell>),
 ) -> String {
+  let GetCell { x, y } = *query;
+
   let state = request.state().lock().unwrap();
-  format!("{}", state.get(data.x, data.y))
+  format!("{}", state.get(x, y))
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct UpdateCell {
-  x: usize,
-  y: usize,
-  color: u8,
+  pub x: usize,
+  pub y: usize,
+  pub color: u8,
 }
 
 pub fn update_cell(
-  (request, data): (HttpRequest<State>, Query<UpdateCell>),
+  (request, query): (HttpRequest<State>, Query<UpdateCell>),
 ) -> String {
+  let UpdateCell { x, y, color } = *query;
+
   let mut state = request.state().lock().unwrap();
-  state.set(data.x, data.y, data.color);
-  format!("{}", state.get(data.x, data.y))
+  state.set(x, y, color);
+  format!("{}", state.get(x, y))
 }
