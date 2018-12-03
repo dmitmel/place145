@@ -3,7 +3,9 @@ extern crate log;
 extern crate env_logger;
 
 extern crate actix;
+extern crate actix_derive;
 extern crate actix_web;
+extern crate futures;
 
 extern crate serde;
 #[macro_use]
@@ -13,22 +15,21 @@ mod api;
 mod canvas;
 mod websocket;
 
-use std::sync::{Arc, Mutex};
+use actix::prelude::*;
 
-use canvas::*;
-
-pub type State = Arc<Mutex<Canvas>>;
+pub type State = Addr<canvas::Canvas>;
 
 fn main() {
   std::env::set_var("RUST_LOG", "info");
   env_logger::init();
 
-  let state =
-    Arc::new(Mutex::new(canvas::Canvas::new(10, 10, vec![0; 10 * 10])));
+  let system = actix::System::new("http-server");
+
+  let canvas_addr = Arbiter::start(|_| canvas::Canvas::new(10, 10));
 
   use actix_web::{fs, middleware, server, ws, App};
   server::new(move || {
-    App::with_state(state.clone())
+    App::with_state(canvas_addr.clone())
       .middleware(middleware::Logger::new(r#"%a "%r" %s, %b bytes, %D ms"#))
       .resource("/api/cell", |r| {
         r.get().with(api::get_cell);
@@ -42,5 +43,8 @@ fn main() {
   })
   .bind("localhost:8080")
   .unwrap()
-  .run();
+  .start();
+
+  let exit_code = system.run();
+  std::process::exit(exit_code);
 }

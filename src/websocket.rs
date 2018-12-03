@@ -1,5 +1,5 @@
-use actix::*;
-use actix_web::*;
+use actix::prelude::*;
+use actix_web::ws;
 
 use State;
 

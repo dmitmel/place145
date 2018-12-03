@@ -1,35 +1,27 @@
-use actix_web::{HttpRequest, Query};
+use actix_web::*;
+use futures::Future;
 
+use canvas::{GetCell, UpdateCell};
 use State;
-
-#[derive(Debug, Deserialize)]
-pub struct GetCell {
-  pub x: usize,
-  pub y: usize,
-}
 
 pub fn get_cell(
   (request, query): (HttpRequest<State>, Query<GetCell>),
-) -> String {
-  let GetCell { x, y } = *query;
-
-  let state = request.state().lock().unwrap();
-  format!("{}", state.get(x, y))
-}
-
-#[derive(Debug, Deserialize)]
-pub struct UpdateCell {
-  pub x: usize,
-  pub y: usize,
-  pub color: u8,
+) -> FutureResponse<String> {
+  let canvas_addr = request.state();
+  Box::new(canvas_addr.send(query.into_inner()).then(|result| match result {
+    Ok(Ok(color)) => Ok(color.to_string()),
+    Ok(Err(error)) => Ok(error.to_string()),
+    Err(error) => panic!(error),
+  }))
 }
 
 pub fn update_cell(
   (request, query): (HttpRequest<State>, Query<UpdateCell>),
-) -> String {
-  let UpdateCell { x, y, color } = *query;
-
-  let mut state = request.state().lock().unwrap();
-  state.set(x, y, color);
-  format!("{}", state.get(x, y))
+) -> FutureResponse<String> {
+  let canvas_addr = request.state();
+  Box::new(canvas_addr.send(query.into_inner()).then(|result| match result {
+    Ok(Ok(_)) => Ok("ok".to_string()),
+    Ok(Err(error)) => Ok(error.to_string()),
+    Err(error) => panic!(error),
+  }))
 }
