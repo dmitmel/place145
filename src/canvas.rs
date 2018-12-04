@@ -42,17 +42,13 @@ pub struct GetCell {
   pub y: usize,
 }
 
-impl Handler<GetCell> for Canvas {
-  type Result = <GetCell as Message>::Result;
-
-  fn handle(&mut self, msg: GetCell, _: &mut Self::Context) -> Self::Result {
-    if let Some(err) = self.assert_in_bounds(msg.x, msg.y) {
-      return Err(err);
-    }
-
-    Ok(self.data[msg.y * self.width + msg.x])
+actix_handler!(GetCell, Canvas, |self_, msg, _| {
+  if let Some(err) = self_.assert_in_bounds(msg.x, msg.y) {
+    return Err(err);
   }
-}
+
+  Ok(self_.data[msg.y * self_.width + msg.x])
+});
 
 #[derive(Debug, Deserialize, Message)]
 #[rtype("Result<(), String>")]
@@ -62,15 +58,11 @@ pub struct UpdateCell {
   pub color: u8,
 }
 
-impl Handler<UpdateCell> for Canvas {
-  type Result = <UpdateCell as Message>::Result;
-
-  fn handle(&mut self, msg: UpdateCell, _: &mut Self::Context) -> Self::Result {
-    if let Some(err) = self.assert_in_bounds(msg.x, msg.y) {
-      return Err(err);
-    }
-
-    self.data[msg.y * self.width + msg.x] = msg.color;
-    Ok(())
+actix_handler!(UpdateCell, Canvas, |self_, msg, _| {
+  if let Some(err) = self_.assert_in_bounds(msg.x, msg.y) {
+    return Err(err);
   }
-}
+
+  self_.data[msg.y * self_.width + msg.x] = msg.color;
+  Ok(())
+});
