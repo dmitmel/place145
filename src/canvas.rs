@@ -1,4 +1,8 @@
+use std::collections::HashSet;
+
 use actix::prelude::*;
+
+use websocket::Ws;
 
 pub type Color = u8;
 
@@ -7,6 +11,7 @@ pub struct Canvas {
   pub width: usize,
   pub height: usize,
   data: Vec<Color>,
+  listeners: HashSet<Addr<Ws>>,
 }
 
 impl Actor for Canvas {
@@ -15,7 +20,18 @@ impl Actor for Canvas {
 
 impl Canvas {
   pub fn new(width: usize, height: usize) -> Self {
-    Self { width, height, data: vec![0; width * height] }
+    Self {
+      width,
+      height,
+      data: vec![0; width * height],
+      listeners: HashSet::new(),
+    }
+  }
+
+  fn broadcast(&self, msg: CellUpdated) {
+    for addr in &self.listeners {
+      addr.do_send(msg.clone());
+    }
   }
 
   fn assert_in_bounds(&self, x: usize, y: usize) -> Option<String> {
@@ -64,5 +80,31 @@ actix_handler!(UpdateCell, Canvas, |self_, msg, _| {
   }
 
   self_.data[msg.y * self_.width + msg.x] = msg.color;
+  self_.broadcast(CellUpdated { x: msg.x, y: msg.y, color: msg.color });
   Ok(())
+});
+
+#[derive(Debug, Clone, Message, Serialize)]
+pub struct CellUpdated {
+  pub x: usize,
+  pub y: usize,
+  pub color: Color,
+}
+
+#[derive(Debug, Message)]
+pub struct ListenerConnected {
+  pub addr: Addr<Ws>,
+}
+
+actix_handler!(ListenerConnected, Canvas, |self_, msg, _| {
+  self_.listeners.insert(msg.addr);
+});
+
+#[derive(Debug, Message)]
+pub struct ListenerDisconnected {
+  pub addr: Addr<Ws>,
+}
+
+actix_handler!(ListenerDisconnected, Canvas, |self_, msg, _| {
+  self_.listeners.remove(&msg.addr);
 });
