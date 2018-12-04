@@ -11,6 +11,9 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 
+#[macro_use]
+mod macros;
+
 mod api;
 mod canvas;
 mod websocket;
