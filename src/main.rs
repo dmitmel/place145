@@ -10,6 +10,7 @@ extern crate futures;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
+extern crate serde_json;
 
 #[macro_use]
 mod macros;
@@ -20,9 +21,9 @@ mod websocket;
 
 use actix::prelude::*;
 
-use canvas::{GetCell, UpdateCell};
+use canvas::{Canvas, GetCell, UpdateCell};
 
-pub type State = Addr<canvas::Canvas>;
+pub type State = Addr<Canvas>;
 
 fn main() {
   std::env::set_var("RUST_LOG", "info");
@@ -30,7 +31,10 @@ fn main() {
 
   let system = actix::System::new("http-server");
 
-  let canvas_addr = Arbiter::start(|_| canvas::Canvas::new(10, 10));
+  let canvas_addr = Arbiter::builder()
+    .name("canvas")
+    .stop_system_on_panic(true)
+    .start(|_| Canvas::new(10, 10));
 
   use actix_web::{fs, middleware, server, ws, App};
   server::new(move || {
