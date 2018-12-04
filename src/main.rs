@@ -17,6 +17,8 @@ mod websocket;
 
 use actix::prelude::*;
 
+use canvas::{GetCell, UpdateCell};
+
 pub type State = Addr<canvas::Canvas>;
 
 fn main() {
@@ -32,8 +34,12 @@ fn main() {
     App::with_state(canvas_addr.clone())
       .middleware(middleware::Logger::new(r#"%a "%r" %s, %b bytes, %D ms"#))
       .resource("/api/cell", |r| {
-        r.get().with(api::get_cell);
-        r.put().with(api::update_cell);
+        r.get().with(|req| {
+          api::canvas_message::<GetCell, _, _>(req, |color| color.to_string())
+        });
+        r.put().with(|req| {
+          api::canvas_message::<UpdateCell, _, _>(req, |_| "".to_string())
+        });
       })
       .resource("/api/stream", |r| r.f(|req| ws::start(req, websocket::Ws)))
       .handler(
