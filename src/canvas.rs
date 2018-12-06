@@ -4,12 +4,13 @@ use actix::prelude::*;
 
 use websocket::Ws;
 
+pub type Coord = u16;
 pub type Color = u8;
 
 #[derive(Debug)]
 pub struct Canvas {
-  pub width: usize,
-  pub height: usize,
+  pub width: Coord,
+  pub height: Coord,
   data: Vec<Color>,
   listeners: HashSet<Addr<Ws>>,
 }
@@ -19,11 +20,11 @@ impl Actor for Canvas {
 }
 
 impl Canvas {
-  pub fn new(width: usize, height: usize) -> Self {
+  pub fn new(width: Coord, height: Coord) -> Self {
     Self {
       width,
       height,
-      data: vec![0; width * height],
+      data: vec![0u8; width as usize * height as usize],
       listeners: HashSet::new(),
     }
   }
@@ -34,7 +35,7 @@ impl Canvas {
     }
   }
 
-  fn assert_in_bounds(&self, x: usize, y: usize) -> Option<String> {
+  fn assert_in_bounds(&self, x: Coord, y: Coord) -> Option<String> {
     let w = self.width;
     let h = self.height;
 
@@ -49,13 +50,17 @@ impl Canvas {
 
     None
   }
+
+  fn index(&self, x: Coord, y: Coord) -> usize {
+    x as usize + y as usize * self.width as usize
+  }
 }
 
 #[derive(Debug, Deserialize, Message)]
-#[rtype("Result<u8, String>")]
+#[rtype("Result<Color, String>")]
 pub struct GetCell {
-  pub x: usize,
-  pub y: usize,
+  pub x: Coord,
+  pub y: Coord,
 }
 
 actix_handler!(GetCell, Canvas, |self_, msg, _| {
@@ -63,15 +68,16 @@ actix_handler!(GetCell, Canvas, |self_, msg, _| {
     return Err(err);
   }
 
-  Ok(self_.data[msg.y * self_.width + msg.x])
+  let i = self_.index(msg.x, msg.y);
+  Ok(self_.data[i])
 });
 
 #[derive(Debug, Deserialize, Message)]
 #[rtype("Result<(), String>")]
 pub struct UpdateCell {
-  pub x: usize,
-  pub y: usize,
-  pub color: u8,
+  pub x: Coord,
+  pub y: Coord,
+  pub color: Color,
 }
 
 actix_handler!(UpdateCell, Canvas, |self_, msg, _| {
@@ -79,15 +85,16 @@ actix_handler!(UpdateCell, Canvas, |self_, msg, _| {
     return Err(err);
   }
 
-  self_.data[msg.y * self_.width + msg.x] = msg.color;
+  let i = self_.index(msg.x, msg.y);
+  self_.data[i] = msg.color;
   self_.broadcast(CellUpdated { x: msg.x, y: msg.y, color: msg.color });
   Ok(())
 });
 
 #[derive(Debug, Clone, Message, Serialize)]
 pub struct CellUpdated {
-  pub x: usize,
-  pub y: usize,
+  pub x: Coord,
+  pub y: Coord,
   pub color: Color,
 }
 
