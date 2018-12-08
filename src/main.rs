@@ -16,7 +16,7 @@ extern crate serde_json;
 
 #[macro_use]
 mod macros;
-
+mod api;
 mod canvas;
 mod websocket;
 
@@ -41,6 +41,7 @@ fn main() {
   server::new(move || {
     App::with_state(canvas_addr.clone())
       .middleware(middleware::Logger::new(r#"%a "%r" %s, %b bytes, %D ms"#))
+      .resource("/api/canvas", |r| r.with(api::canvas))
       .resource("/api/stream", |r| r.f(|req| ws::start(req, websocket::Ws)))
       .handler(
         "/",

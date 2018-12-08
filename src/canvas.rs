@@ -72,6 +72,12 @@ actix_handler!(GetCell, Canvas, |self_, msg, _| {
   Ok(self_.data[i])
 });
 
+#[derive(Debug, Message)]
+#[rtype("Vec<Color>")]
+pub struct GetCanvas;
+
+actix_handler!(GetCanvas, Canvas, |self_, _, _| self_.data.clone());
+
 #[derive(Debug, Deserialize, Message)]
 #[rtype("Result<(), String>")]
 pub struct UpdateCell {
