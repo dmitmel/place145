@@ -1,7 +1,6 @@
 use actix::prelude::*;
 use actix_web::ws;
 
-use byteorder::{NetworkEndian, ReadBytesExt, WriteBytesExt};
 use futures::Future;
 
 use canvas::*;
@@ -65,65 +64,50 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for Ws {
   }
 }
 
-enum PacketType {
-  Error,
-  GetCell,
-  CellData,
-  SetCell,
-  CellUpdated,
+#[derive(Debug, Deserialize)]
+enum RequestPacket {
+  GetCell { x: Coord, y: Coord },
+  SetCell { x: Coord, y: Coord, color: Color },
 }
 
-fn send_packet(type_: PacketType, payload: &[u8], ctx: &mut WsContext) {
-  let mut packet: Vec<u8> = vec![type_ as u8];
-  packet.extend(payload);
-  ctx.binary(packet);
+#[derive(Debug, Serialize)]
+enum ResponsePacket {
+  Error { message: String },
+  CellData { x: Coord, y: Coord, color: Color },
+  CellUpdated { x: Coord, y: Coord, color: Color },
+}
+
+fn send_packet(packet: ResponsePacket, ctx: &mut WsContext) {
+  ctx.binary(bincode::config().big_endian().serialize(&packet).unwrap());
+}
+
+fn send_error(message: &str, ctx: &mut WsContext) {
+  send_packet(ResponsePacket::Error { message: message.to_string() }, ctx)
 }
 
 impl Ws {
-  #[allow(clippy::string_lit_as_bytes)]
-  fn handle_packet(&mut self, mut bytes: &[u8], ctx: &mut WsContext) {
-    #[rustfmt::skip]
-    macro_rules! read {
-      (u8, $msg:expr) =>  { read!(@unwrap bytes.read_u8(), $msg) };
-      (u16, $msg:expr) => { read!(@unwrap bytes.read_u16::<NetworkEndian>(), $msg) };
-
-      (@unwrap $result:expr, $msg:expr) => {
-        match $result {
-          Ok(value) => value,
-          Err(_) => {
-            send_packet(PacketType::Error, $msg, ctx);
-            return;
-          },
+  fn handle_packet(&mut self, bytes: &[u8], ctx: &mut WsContext) {
+    let packet: RequestPacket =
+      match bincode::config().big_endian().deserialize(&bytes[..]) {
+        Ok(packet) => packet,
+        Err(error) => {
+          send_error(&error.to_string(), ctx);
+          return;
         }
       };
-    }
 
-    let msg_type = read!(u8, b"expected packet type");
-    let x = read!(u16, b"expected cell x");
-    let y = read!(u16, b"expected cell y");
-    if msg_type == PacketType::GetCell as u8 {
-      self.handle_get_cell(x, y, ctx);
-    } else if msg_type == PacketType::SetCell as u8 {
-      let color = read!(u8, b"expected color");
-      self.handle_set_cell(x, y, color, ctx);
-    } else {
-      send_packet(PacketType::Error, b"unknown packet type", ctx)
+    use self::RequestPacket::*;
+    match packet {
+      GetCell { x, y } => self.handle_get_cell(x, y, ctx),
+      SetCell { x, y, color } => self.handle_set_cell(x, y, color, ctx),
     }
   }
 
   fn handle_get_cell(&mut self, x: Coord, y: Coord, ctx: &mut WsContext) {
     self.send_to_canvas(GetCell { x, y }, ctx, move |result, _, ctx| {
       match result.unwrap() {
-        Ok(color) => {
-          let mut response: Vec<u8> = vec![];
-          response.write_u16::<NetworkEndian>(x).unwrap();
-          response.write_u16::<NetworkEndian>(y).unwrap();
-          response.write_u8(color).unwrap();
-          send_packet(PacketType::CellData, &response, ctx);
-        }
-        Err(error) => {
-          send_packet(PacketType::Error, error.as_bytes(), ctx);
-        }
+        Ok(color) => send_packet(ResponsePacket::CellData { x, y, color }, ctx),
+        Err(error) => send_error(&error, ctx),
       }
       actix::fut::ok(())
     });
@@ -138,7 +122,7 @@ impl Ws {
   ) {
     self.send_to_canvas(UpdateCell { x, y, color }, ctx, |result, _, ctx| {
       if let Err(error) = result.unwrap() {
-        send_packet(PacketType::Error, error.as_bytes(), ctx);
+        send_error(&error, ctx)
       }
       actix::fut::ok(())
     })
@@ -146,9 +130,6 @@ impl Ws {
 }
 
 actix_handler!(CellUpdated, Ws, |_, msg, ctx| {
-  let mut response: Vec<u8> = vec![];
-  response.write_u16::<NetworkEndian>(msg.x).unwrap();
-  response.write_u16::<NetworkEndian>(msg.y).unwrap();
-  response.write_u8(msg.color).unwrap();
-  send_packet(PacketType::CellUpdated, &response, ctx);
+  let CellUpdated { x, y, color } = msg;
+  send_packet(ResponsePacket::CellUpdated { x, y, color }, ctx);
 });

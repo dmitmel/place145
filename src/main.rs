@@ -1,5 +1,3 @@
-extern crate byteorder;
-
 #[macro_use]
 extern crate log;
 extern crate env_logger;
@@ -12,7 +10,7 @@ extern crate futures;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
-extern crate serde_json;
+extern crate bincode;
 
 #[macro_use]
 mod macros;
