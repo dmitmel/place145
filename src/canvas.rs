@@ -36,17 +36,21 @@ impl Canvas {
   }
 
   fn assert_in_bounds(&self, x: Coord, y: Coord) -> Option<String> {
-    let w = self.width;
-    let h = self.height;
-
-    macro_rules! err {
-      ($cond:expr, $($arg:tt)+) => {
-        if $cond { return Some(format!($($arg)+)); }
+    #[rustfmt::skip]
+    macro_rules! is_in_bounds {
+      ($value_var:ident, $max_field:ident) => {
+        if $value_var >= self.$max_field {
+          return Some(format!(
+            "{} out of bounds: the {} is {} but the {} is {}",
+            stringify!($value_var), stringify!($max_field), self.$max_field,
+            stringify!($value_var), $value_var,
+          ));
+        }
       };
     }
 
-    err!(x >= w, "x out of bounds: the width is {} but the x is {}", w, x);
-    err!(y >= h, "y out of bounds: the height is {} but the y is {}", h, y);
+    is_in_bounds!(x, width);
+    is_in_bounds!(y, height);
 
     None
   }
