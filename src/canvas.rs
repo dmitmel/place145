@@ -55,12 +55,12 @@ impl Canvas {
     None
   }
 
-  fn index(&self, x: Coord, y: Coord) -> usize {
-    x as usize + y as usize * self.width as usize
+  fn cell_ref(&mut self, x: Coord, y: Coord) -> &mut Color {
+    &mut self.data[x as usize + y as usize * self.width as usize]
   }
 }
 
-#[derive(Debug, Deserialize, Message)]
+#[derive(Debug, Message)]
 #[rtype("Result<Color, String>")]
 pub struct GetCell {
   pub x: Coord,
@@ -72,8 +72,7 @@ actix_handler!(GetCell, Canvas, |self_, msg, _| {
     return Err(err);
   }
 
-  let i = self_.index(msg.x, msg.y);
-  Ok(self_.data[i])
+  Ok(*self_.cell_ref(msg.x, msg.y))
 });
 
 #[derive(Debug, Message)]
@@ -82,7 +81,7 @@ pub struct GetCanvas;
 
 actix_handler!(GetCanvas, Canvas, |self_, _, _| self_.data.clone());
 
-#[derive(Debug, Deserialize, Message)]
+#[derive(Debug, Message)]
 #[rtype("Result<(), String>")]
 pub struct UpdateCell {
   pub x: Coord,
@@ -95,13 +94,12 @@ actix_handler!(UpdateCell, Canvas, |self_, msg, _| {
     return Err(err);
   }
 
-  let i = self_.index(msg.x, msg.y);
-  self_.data[i] = msg.color;
+  *self_.cell_ref(msg.x, msg.y) = msg.color;
   self_.broadcast(CellUpdated { x: msg.x, y: msg.y, color: msg.color });
   Ok(())
 });
 
-#[derive(Debug, Clone, Message, Serialize)]
+#[derive(Debug, Clone, Message)]
 pub struct CellUpdated {
   pub x: Coord,
   pub y: Coord,
