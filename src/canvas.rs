@@ -5,7 +5,9 @@ use std::time::Duration;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
 
+use actix::actors::signal::{self, ProcessSignals, Signal, SignalType};
 use actix::prelude::*;
+use futures::Future;
 
 use config::CanvasConfig;
 use try_run;
@@ -59,29 +61,47 @@ impl Canvas {
   fn cell_ref(&mut self, x: Coord, y: Coord) -> &mut Color {
     &mut self.data[x as usize + y as usize * self.config.width as usize]
   }
+
+  fn save(&self) -> Fallible<()> {
+    debug!("saving canvas data");
+
+    let mut file = &self.file;
+    file.seek(SeekFrom::Start(0)).unwrap();
+    file.set_len(0).unwrap();
+
+    file.write_all(&self.data).context("couldn't write canvas data")?;
+    file.flush().context("couldn't flush canvas file")?;
+
+    Ok(())
+  }
 }
 
 impl Actor for Canvas {
   type Context = Context<Self>;
 
   fn started(&mut self, ctx: &mut Self::Context) {
-    let save_interval = Duration::from_millis(self.config.save.interval);
-    ctx.run_interval(save_interval, |self_, _ctx| {
-      try_run(|| {
-        debug!("saving canvas data");
-
-        let mut file = &self_.file;
-        file.seek(SeekFrom::Start(0)).unwrap();
-        file.set_len(0).unwrap();
-
-        file.write_all(&self_.data).context("couldn't write canvas data")?;
-        file.flush().context("couldn't flush canvas file")?;
-
+    let process_signals_addr =
+      System::current().registry().get::<ProcessSignals>();
+    process_signals_addr
+      .send(signal::Subscribe(ctx.address().recipient()))
+      .then(|result| {
+        result.unwrap();
         Ok(())
       })
-    });
+      .into_actor(self)
+      .wait(ctx);
+
+    let save_interval = Duration::from_millis(self.config.save.interval);
+    ctx.run_interval(save_interval, |self_, _ctx| try_run(|| self_.save()));
   }
 }
+
+actix_handler!(Signal, Canvas, |self_, msg, _| match msg.0 {
+  SignalType::Int | SignalType::Term | SignalType::Quit => {
+    try_run(|| self_.save())
+  }
+  _ => (),
+});
 
 #[derive(Debug, Message)]
 #[rtype("Result<Color, String>")]

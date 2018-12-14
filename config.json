@@ -6,7 +6,7 @@
     "width": 64,
     "height": 64,
     "save": {
-      "interval": 2000,
+      "interval": 5000,
       "path": "canvas.bin"
     }
   }
