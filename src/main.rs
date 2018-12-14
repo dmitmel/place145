@@ -27,9 +27,11 @@ use failure::{Error, Fallible, ResultExt};
 
 use std::env;
 use std::ffi::OsString;
+use std::fs;
 use std::path::Path;
 
 use actix::prelude::*;
+use actix_web::{middleware, server, ws, App};
 
 use canvas::Canvas;
 use config::Config;
@@ -37,11 +39,13 @@ use config::Config;
 pub type State = Addr<Canvas>;
 
 fn main() {
-  run_fallible(|| {
-    env::set_var("RUST_LOG", "info");
+  try_run(|| {
+    env::set_var("RUST_LOG", "info,place145=debug");
     env_logger::try_init().context("couldn't initialize logger")?;
 
     let args: Vec<OsString> = env::args_os().collect();
+    debug!("command line arguments: {:?}", args);
+
     let config_path = if args.len() == 2 {
       Path::new(&args[1])
     } else {
@@ -49,7 +53,12 @@ fn main() {
       bail!("usage: {} path/to/config.json", executable_path.to_string_lossy());
     };
 
-    let config = config::load(config_path);
+    info!("loading config from {:?}", config_path);
+    let config_bytes =
+      fs::read(config_path).context("couldn't read config file")?;
+    let config = serde_json::from_slice(&config_bytes).unwrap();
+    debug!("config loaded: {:#?}", config);
+
     let Config { server: server_config, canvas: canvas_config } = config;
 
     let system = actix::System::new("http-server");
@@ -57,9 +66,8 @@ fn main() {
     let canvas_addr = Arbiter::builder()
       .name("canvas")
       .stop_system_on_panic(true)
-      .start(|_| run_fallible(|| Canvas::load(canvas_config)));
+      .start(|_| try_run(|| Canvas::load(canvas_config)));
 
-    use actix_web::{fs, middleware, server, ws, App};
     let http_server = server::new(move || {
       App::with_state(canvas_addr.clone())
         .middleware(middleware::Logger::new(r#"%a "%r" %s, %b bytes, %D ms"#))
@@ -67,23 +75,25 @@ fn main() {
         .resource("/api/stream", |r| r.f(|req| ws::start(req, websocket::Ws)))
         .handler(
           "/",
-          fs::StaticFiles::new("frontend/build")
+          actix_web::fs::StaticFiles::new("frontend/build")
             .unwrap()
             .index_file("index.html"),
         )
     });
 
+    info!("starting HTTP server");
     http_server
       .bind(server_config.address)
       .context("couldn't bind server socket")?
       .start();
 
     let exit_code = system.run();
+    debug!("exiting with code {}", exit_code);
     std::process::exit(exit_code);
   })
 }
 
-pub fn run_fallible<T, F>(f: F) -> T
+pub fn try_run<T, F>(f: F) -> T
 where
   F: FnOnce() -> Fallible<T>,
 {
@@ -98,14 +108,14 @@ pub fn handle_error(error: Error) -> ! {
   let thread = thread::current();
   let name = thread.name().unwrap_or("<unnamed>");
 
-  eprintln!("error in thread '{}': {}", name, error);
+  error!("error in thread '{}': {}", name, error);
 
   for cause in error.iter_causes() {
-    eprintln!("caused by: {}", cause);
+    error!("caused by: {}", cause);
   }
 
-  eprintln!("{}", error.backtrace());
-  eprintln!("note: Run with `RUST_BACKTRACE=1` if you don't see a backtrace.");
+  error!("{}", error.backtrace());
+  error!("note: Run with `RUST_BACKTRACE=1` if you don't see a backtrace.");
 
   process::exit(1);
 }
