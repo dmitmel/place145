@@ -28,46 +28,29 @@ use failure::{Error, Fallible, ResultExt};
 use std::env;
 use std::ffi::OsString;
 use std::fs;
-use std::path::Path;
+use std::path::PathBuf;
 
 use actix::prelude::*;
 use actix_web::{middleware, server, ws, App};
 
 use canvas::Canvas;
-use config::Config;
+use config::*;
 
 pub type State = Addr<Canvas>;
 
 fn main() {
   try_run(|| {
-    env::set_var("RUST_LOG", "info,place145=debug");
-    env_logger::try_init().context("couldn't initialize logger")?;
+    init_logger()?;
 
-    let args: Vec<OsString> = env::args_os().collect();
-    debug!("command line arguments: {:?}", args);
-
-    let config_path = if args.len() == 2 {
-      Path::new(&args[1])
-    } else {
-      let executable_path = &args[0];
-      bail!("usage: {} path/to/config.json", executable_path.to_string_lossy());
-    };
-
-    info!("loading config from {:?}", config_path);
-    let config_bytes =
-      fs::read(config_path).context("couldn't read config file")?;
-    let config = serde_json::from_slice(&config_bytes).unwrap();
-    debug!("config loaded: {:#?}", config);
+    let config_path = get_config_path()?;
+    let config = load_config(config_path)?;
 
     let Config { server: server_config, canvas: canvas_config } = config;
 
     let system = actix::System::new("http-server");
+    let canvas_addr = start_canvas_actor(canvas_config);
 
-    let canvas_addr = Arbiter::builder()
-      .name("canvas")
-      .stop_system_on_panic(true)
-      .start(|_| try_run(|| Canvas::load(canvas_config)));
-
+    let static_files_path = server_config.static_files;
     let http_server = server::new(move || {
       App::with_state(canvas_addr.clone())
         .middleware(middleware::Logger::new(r#"%a "%r" %s, %b bytes, %D ms"#))
@@ -75,7 +58,7 @@ fn main() {
         .resource("/api/stream", |r| r.f(|req| ws::start(req, websocket::Ws)))
         .handler(
           "/",
-          actix_web::fs::StaticFiles::new("frontend/build")
+          actix_web::fs::StaticFiles::new(&static_files_path)
             .unwrap()
             .index_file("index.html"),
         )
@@ -91,6 +74,40 @@ fn main() {
     debug!("exiting with code {}", exit_code);
     std::process::exit(exit_code);
   })
+}
+
+fn init_logger() -> Fallible<()> {
+  env::set_var("RUST_LOG", "info,place145=debug");
+  env_logger::try_init().context("couldn't initialize logger")?;
+  Ok(())
+}
+
+fn get_config_path() -> Fallible<PathBuf> {
+  let args: Vec<OsString> = env::args_os().collect();
+  debug!("command line arguments: {:?}", args);
+
+  if args.len() == 2 {
+    let config_path = &args[1];
+    Ok(PathBuf::from(config_path))
+  } else {
+    let executable_path = &args[0];
+    bail!("usage: {} path/to/config.json", executable_path.to_string_lossy())
+  }
+}
+
+fn load_config(path: PathBuf) -> Fallible<Config> {
+  info!("loading config from {:?}", path);
+  let bytes: Vec<u8> = fs::read(path).context("couldn't read config file")?;
+  let config: Config = serde_json::from_slice(&bytes).unwrap();
+  debug!("config loaded: {:#?}", config);
+  Ok(config)
+}
+
+fn start_canvas_actor(config: CanvasConfig) -> Addr<Canvas> {
+  Arbiter::builder()
+    .name("canvas")
+    .stop_system_on_panic(true)
+    .start(|_| try_run(|| Canvas::load(config)))
 }
 
 pub fn try_run<T, F>(f: F) -> T
