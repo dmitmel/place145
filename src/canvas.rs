@@ -7,38 +7,33 @@ use std::io::{Read, Seek, SeekFrom, Write};
 
 use actix::prelude::*;
 
-use websocket::Ws;
-
+use config::CanvasConfig;
 use run_fallible;
+use websocket::Ws;
 
 pub type Coord = u16;
 pub type Color = u8;
 
-const WIDTH: Coord = 64;
-const HEIGHT: Coord = WIDTH;
-
-const SAVE_INTERVAL: Duration = Duration::from_secs(2);
-const FILE_PATH: &str = "canvas.bin";
-
 #[derive(Debug)]
 pub struct Canvas {
+  config: CanvasConfig,
   file: File,
   data: Vec<Color>,
   listeners: HashSet<Addr<Ws>>,
 }
 
 impl Canvas {
-  pub fn load() -> Fallible<Self> {
+  pub fn load(config: CanvasConfig) -> Fallible<Self> {
     let mut file: File = OpenOptions::new()
       .read(true)
       .write(true)
-      .open(FILE_PATH)
+      .open(&config.save.path)
       .context("couldn't open canvas file")?;
 
-    let mut data = vec![0u8; WIDTH as usize * HEIGHT as usize];
+    let mut data = vec![0u8; config.width as usize * config.height as usize];
     file.read_exact(&mut data).context("couldn't read canvas data")?;
 
-    Ok(Self { file, data, listeners: HashSet::new() })
+    Ok(Self { config, file, data, listeners: HashSet::new() })
   }
 
   fn broadcast(&self, msg: CellUpdated) {
@@ -59,14 +54,14 @@ impl Canvas {
       };
     }
 
-    is_in_bounds!(x, "x", WIDTH, "width");
-    is_in_bounds!(y, "y", HEIGHT, "height");
+    is_in_bounds!(x, "x", self.config.width, "width");
+    is_in_bounds!(y, "y", self.config.height, "height");
 
     None
   }
 
   fn cell_ref(&mut self, x: Coord, y: Coord) -> &mut Color {
-    &mut self.data[x as usize + y as usize * WIDTH as usize]
+    &mut self.data[x as usize + y as usize * self.config.width as usize]
   }
 }
 
@@ -74,7 +69,8 @@ impl Actor for Canvas {
   type Context = Context<Self>;
 
   fn started(&mut self, ctx: &mut Self::Context) {
-    ctx.run_interval(SAVE_INTERVAL, |self_, _ctx| {
+    let save_interval = Duration::from_millis(self.config.save.interval);
+    ctx.run_interval(save_interval, |self_, _ctx| {
       run_fallible(|| {
         let mut file = &self_.file;
         file.seek(SeekFrom::Start(0)).unwrap();

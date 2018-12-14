@@ -1,0 +1,13 @@
+{
+  "server": {
+    "address": "0.0.0.0:8080"
+  },
+  "canvas": {
+    "width": 64,
+    "height": 64,
+    "save": {
+      "interval": 2000,
+      "path": "canvas.bin"
+    }
+  }
+}

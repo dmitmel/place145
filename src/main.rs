@@ -13,18 +13,22 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 extern crate bincode;
+extern crate serde_json;
 
 #[macro_use]
 mod macros;
 mod api;
 mod canvas;
+mod config;
 mod websocket;
 
 use failure::{Error, Fallible, ResultExt};
 
 use actix::prelude::*;
+use std::path::Path;
 
 use canvas::Canvas;
+use config::Config;
 
 pub type State = Addr<Canvas>;
 
@@ -33,12 +37,15 @@ fn main() {
     std::env::set_var("RUST_LOG", "info");
     env_logger::try_init().context("couldn't initialize logger")?;
 
+    let config = config::load(Path::new("config.json"));
+    let Config { server: server_config, canvas: canvas_config } = config;
+
     let system = actix::System::new("http-server");
 
     let canvas_addr = Arbiter::builder()
       .name("canvas")
       .stop_system_on_panic(true)
-      .start(|_| run_fallible(Canvas::load));
+      .start(|_| run_fallible(|| Canvas::load(canvas_config)));
 
     use actix_web::{fs, middleware, server, ws, App};
     let http_server = server::new(move || {
@@ -55,7 +62,7 @@ fn main() {
     });
 
     http_server
-      .bind("0.0.0.0:8080")
+      .bind(server_config.address)
       .context("couldn't bind server socket")?
       .start();
 
