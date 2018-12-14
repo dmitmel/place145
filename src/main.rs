@@ -55,7 +55,9 @@ fn main() {
       App::with_state(canvas_addr.clone())
         .middleware(middleware::Logger::new(r#"%a "%r" %s, %b bytes, %D ms"#))
         .resource("/api/canvas", |r| r.with(api::canvas))
-        .resource("/api/stream", |r| r.f(|req| ws::start(req, websocket::Ws)))
+        .resource("/api/stream", |r| {
+          r.f(|req| ws::start(req, websocket::Client))
+        })
         .handler(
           "/",
           actix_web::fs::StaticFiles::new(&static_files_path)

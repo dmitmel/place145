@@ -7,12 +7,12 @@ use canvas::*;
 use State;
 
 #[derive(Debug)]
-pub struct Ws;
+pub struct Client;
 
-type WsContext = ws::WebsocketContext<Ws, State>;
+type Context = ws::WebsocketContext<Client, State>;
 
-impl Actor for Ws {
-  type Context = WsContext;
+impl Actor for Client {
+  type Context = Context;
 
   fn started(&mut self, ctx: &mut Self::Context) {
     let addr = ctx.address();
@@ -30,18 +30,18 @@ impl Actor for Ws {
   }
 }
 
-impl Ws {
+impl Client {
   pub fn send_to_canvas<M: 'static, I: 'static, F: 'static, B: 'static>(
     &mut self,
     msg: M,
-    ctx: &mut WsContext,
+    ctx: &mut Context,
     then: F,
   ) where
     M: Message<Result = I> + Send,
     I: Send,
     Canvas: Handler<M>,
-    F: FnOnce(Result<I, MailboxError>, &mut Ws, &mut WsContext) -> B,
-    B: ActorFuture<Item = (), Error = (), Actor = Ws> + Sized,
+    F: FnOnce(Result<I, MailboxError>, &mut Client, &mut Context) -> B,
+    B: ActorFuture<Item = (), Error = (), Actor = Client> + Sized,
   {
     {
       let canvas_addr = ctx.state();
@@ -54,7 +54,7 @@ impl Ws {
   }
 }
 
-impl StreamHandler<ws::Message, ws::ProtocolError> for Ws {
+impl StreamHandler<ws::Message, ws::ProtocolError> for Client {
   fn handle(&mut self, msg: ws::Message, ctx: &mut Self::Context) {
     match msg {
       ws::Message::Binary(binary) => self.handle_packet(binary.as_ref(), ctx),
@@ -77,16 +77,16 @@ enum ResponsePacket {
   CellUpdated { x: Coord, y: Coord, color: Color },
 }
 
-fn send_packet(packet: ResponsePacket, ctx: &mut WsContext) {
+fn send_packet(packet: ResponsePacket, ctx: &mut Context) {
   ctx.binary(bincode::config().big_endian().serialize(&packet).unwrap());
 }
 
-fn send_error(message: &str, ctx: &mut WsContext) {
+fn send_error(message: &str, ctx: &mut Context) {
   send_packet(ResponsePacket::Error { message: message.to_string() }, ctx)
 }
 
-impl Ws {
-  fn handle_packet(&mut self, bytes: &[u8], ctx: &mut WsContext) {
+impl Client {
+  fn handle_packet(&mut self, bytes: &[u8], ctx: &mut Context) {
     let packet: RequestPacket =
       match bincode::config().big_endian().deserialize(&bytes[..]) {
         Ok(packet) => packet,
@@ -98,12 +98,12 @@ impl Ws {
 
     use self::RequestPacket::*;
     match packet {
-      GetCell { x, y } => self.handle_get_cell(x, y, ctx),
-      SetCell { x, y, color } => self.handle_set_cell(x, y, color, ctx),
+      GetCell { x, y } => self.get_cell(x, y, ctx),
+      SetCell { x, y, color } => self.set_cell(x, y, color, ctx),
     }
   }
 
-  fn handle_get_cell(&mut self, x: Coord, y: Coord, ctx: &mut WsContext) {
+  fn get_cell(&mut self, x: Coord, y: Coord, ctx: &mut Context) {
     self.send_to_canvas(GetCell { x, y }, ctx, move |result, _, ctx| {
       match result.unwrap() {
         Ok(color) => send_packet(ResponsePacket::CellData { x, y, color }, ctx),
@@ -113,13 +113,7 @@ impl Ws {
     });
   }
 
-  fn handle_set_cell(
-    &mut self,
-    x: Coord,
-    y: Coord,
-    color: Color,
-    ctx: &mut WsContext,
-  ) {
+  fn set_cell(&mut self, x: Coord, y: Coord, color: Color, ctx: &mut Context) {
     self.send_to_canvas(UpdateCell { x, y, color }, ctx, |result, _, ctx| {
       if let Err(error) = result.unwrap() {
         send_error(&error, ctx)
@@ -129,7 +123,7 @@ impl Ws {
   }
 }
 
-actix_handler!(CellUpdated, Ws, |_, msg, ctx| {
+actix_handler!(CellUpdated, Client, |_, msg, ctx| {
   let CellUpdated { x, y, color } = msg;
   send_packet(ResponsePacket::CellUpdated { x, y, color }, ctx);
 });
