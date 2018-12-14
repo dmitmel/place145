@@ -33,7 +33,7 @@ fn main() {
   let canvas_addr = Arbiter::builder()
     .name("canvas")
     .stop_system_on_panic(true)
-    .start(|_| Canvas::new(1024, 1024));
+    .start(|_| Canvas::new());
 
   use actix_web::{fs, middleware, server, ws, App};
   server::new(move || {
