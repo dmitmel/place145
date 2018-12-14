@@ -1,3 +1,4 @@
+use failure::{Fallible, ResultExt};
 use std::collections::HashSet;
 use std::time::Duration;
 
@@ -7,6 +8,8 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use actix::prelude::*;
 
 use websocket::Ws;
+
+use run_fallible;
 
 pub type Coord = u16;
 pub type Color = u8;
@@ -25,14 +28,17 @@ pub struct Canvas {
 }
 
 impl Canvas {
-  pub fn new() -> Self {
-    let mut file: File =
-      OpenOptions::new().read(true).write(true).open(FILE_PATH).unwrap();
+  pub fn load() -> Fallible<Self> {
+    let mut file: File = OpenOptions::new()
+      .read(true)
+      .write(true)
+      .open(FILE_PATH)
+      .context("couldn't open canvas file")?;
 
     let mut data = vec![0u8; WIDTH as usize * HEIGHT as usize];
-    file.read_exact(&mut data).unwrap();
+    file.read_exact(&mut data).context("couldn't read canvas data")?;
 
-    Self { file, data, listeners: HashSet::new() }
+    Ok(Self { file, data, listeners: HashSet::new() })
   }
 
   fn broadcast(&self, msg: CellUpdated) {
@@ -68,12 +74,17 @@ impl Actor for Canvas {
   type Context = Context<Self>;
 
   fn started(&mut self, ctx: &mut Self::Context) {
-    ctx.run_interval(SAVE_INTERVAL, |actor, _ctx| {
-      actor.file.seek(SeekFrom::Start(0)).unwrap();
-      actor.file.set_len(0).unwrap();
+    ctx.run_interval(SAVE_INTERVAL, |self_, _ctx| {
+      run_fallible(|| {
+        let mut file = &self_.file;
+        file.seek(SeekFrom::Start(0)).unwrap();
+        file.set_len(0).unwrap();
 
-      actor.file.write_all(&actor.data).unwrap();
-      actor.file.flush().unwrap();
+        file.write_all(&self_.data).context("couldn't write canvas data")?;
+        file.flush().context("couldn't flush canvas file")?;
+
+        Ok(())
+      })
     });
   }
 }
