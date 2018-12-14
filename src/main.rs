@@ -2,6 +2,7 @@
 extern crate log;
 extern crate env_logger;
 
+#[macro_use]
 extern crate failure;
 
 extern crate actix;
@@ -24,8 +25,11 @@ mod websocket;
 
 use failure::{Error, Fallible, ResultExt};
 
-use actix::prelude::*;
+use std::env;
+use std::ffi::OsString;
 use std::path::Path;
+
+use actix::prelude::*;
 
 use canvas::Canvas;
 use config::Config;
@@ -34,10 +38,18 @@ pub type State = Addr<Canvas>;
 
 fn main() {
   run_fallible(|| {
-    std::env::set_var("RUST_LOG", "info");
+    env::set_var("RUST_LOG", "info");
     env_logger::try_init().context("couldn't initialize logger")?;
 
-    let config = config::load(Path::new("config.json"));
+    let args: Vec<OsString> = env::args_os().collect();
+    let config_path = if args.len() == 2 {
+      Path::new(&args[1])
+    } else {
+      let executable_path = &args[0];
+      bail!("usage: {} path/to/config.json", executable_path.to_string_lossy());
+    };
+
+    let config = config::load(config_path);
     let Config { server: server_config, canvas: canvas_config } = config;
 
     let system = actix::System::new("http-server");
