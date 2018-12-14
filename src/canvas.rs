@@ -36,12 +36,6 @@ impl Canvas {
     Ok(Self { config, file, data, listeners: HashSet::new() })
   }
 
-  fn broadcast(&self, msg: CellUpdated) {
-    for addr in &self.listeners {
-      addr.do_send(msg.clone());
-    }
-  }
-
   fn assert_in_bounds(&self, x: Coord, y: Coord) -> Option<String> {
     macro_rules! is_in_bounds {
       ($val:expr, $val_name:expr, $max:expr, $max_name:expr) => {
@@ -120,11 +114,15 @@ actix_handler!(UpdateCell, Canvas, |self_, msg, _| {
   }
 
   *self_.cell_ref(msg.x, msg.y) = msg.color;
-  self_.broadcast(CellUpdated { x: msg.x, y: msg.y, color: msg.color });
+
+  for addr in &self_.listeners {
+    addr.do_send(CellUpdated { x: msg.x, y: msg.y, color: msg.color });
+  }
+
   Ok(())
 });
 
-#[derive(Debug, Clone, Message)]
+#[derive(Debug, Message)]
 pub struct CellUpdated {
   pub x: Coord,
   pub y: Coord,
