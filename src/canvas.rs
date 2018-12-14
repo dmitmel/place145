@@ -11,7 +11,7 @@ use futures::Future;
 
 use config::CanvasConfig;
 use try_run;
-use websocket::Ws;
+use websocket::Client;
 
 pub type Coord = u16;
 pub type Color = u8;
@@ -21,7 +21,7 @@ pub struct Canvas {
   config: CanvasConfig,
   file: File,
   data: Vec<Color>,
-  listeners: HashSet<Addr<Ws>>,
+  listeners: HashSet<Addr<Client>>,
 }
 
 impl Canvas {
@@ -155,7 +155,7 @@ pub struct CellUpdated {
 
 #[derive(Debug, Message)]
 pub struct ListenerConnected {
-  pub addr: Addr<Ws>,
+  pub addr: Addr<Client>,
 }
 
 actix_handler!(ListenerConnected, Canvas, |self_, msg, _| {
@@ -164,7 +164,7 @@ actix_handler!(ListenerConnected, Canvas, |self_, msg, _| {
 
 #[derive(Debug, Message)]
 pub struct ListenerDisconnected {
-  pub addr: Addr<Ws>,
+  pub addr: Addr<Client>,
 }
 
 actix_handler!(ListenerDisconnected, Canvas, |self_, msg, _| {
