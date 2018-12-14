@@ -40,11 +40,11 @@ impl Canvas {
     Ok(Self { config, file, data, listeners: HashSet::new() })
   }
 
-  fn assert_in_bounds(&self, x: Coord, y: Coord) -> Option<String> {
+  fn assert_in_bounds(&self, x: Coord, y: Coord) -> Result<(), String> {
     macro_rules! is_in_bounds {
       ($val:expr, $val_name:expr, $max:expr, $max_name:expr) => {
         if $val >= $max {
-          return Some(format!(
+          return Err(format!(
             "{} out of bounds: the {} is {} but the {} is {}",
             $val_name, $max_name, $max, $val_name, $val,
           ));
@@ -55,11 +55,37 @@ impl Canvas {
     is_in_bounds!(x, "x", self.config.width, "width");
     is_in_bounds!(y, "y", self.config.height, "height");
 
-    None
+    Ok(())
   }
 
   fn cell_ref(&mut self, x: Coord, y: Coord) -> &mut Color {
     &mut self.data[x as usize + y as usize * self.config.width as usize]
+  }
+}
+
+impl Actor for Canvas {
+  type Context = Context<Self>;
+
+  fn started(&mut self, ctx: &mut Self::Context) {
+    self.subscribe_to_signals(ctx);
+
+    let save_interval = Duration::from_millis(self.config.save.interval);
+    ctx.run_interval(save_interval, |self_, _ctx| try_run(|| self_.save()));
+  }
+}
+
+impl Canvas {
+  fn subscribe_to_signals(&mut self, ctx: &mut <Canvas as Actor>::Context) {
+    let service_addr = System::current().registry().get::<ProcessSignals>();
+
+    service_addr
+      .send(signal::Subscribe(ctx.address().recipient()))
+      .then(|result| {
+        result.unwrap();
+        Ok(())
+      })
+      .into_actor(self)
+      .wait(ctx);
   }
 
   fn save(&self) -> Fallible<()> {
@@ -73,26 +99,6 @@ impl Canvas {
     file.flush().context("couldn't flush canvas file")?;
 
     Ok(())
-  }
-}
-
-impl Actor for Canvas {
-  type Context = Context<Self>;
-
-  fn started(&mut self, ctx: &mut Self::Context) {
-    let process_signals_addr =
-      System::current().registry().get::<ProcessSignals>();
-    process_signals_addr
-      .send(signal::Subscribe(ctx.address().recipient()))
-      .then(|result| {
-        result.unwrap();
-        Ok(())
-      })
-      .into_actor(self)
-      .wait(ctx);
-
-    let save_interval = Duration::from_millis(self.config.save.interval);
-    ctx.run_interval(save_interval, |self_, _ctx| try_run(|| self_.save()));
   }
 }
 
@@ -111,10 +117,7 @@ pub struct GetCell {
 }
 
 actix_handler!(GetCell, Canvas, |self_, msg, _| {
-  if let Some(err) = self_.assert_in_bounds(msg.x, msg.y) {
-    return Err(err);
-  }
-
+  self_.assert_in_bounds(msg.x, msg.y)?;
   Ok(*self_.cell_ref(msg.x, msg.y))
 });
 
@@ -133,10 +136,7 @@ pub struct UpdateCell {
 }
 
 actix_handler!(UpdateCell, Canvas, |self_, msg, _| {
-  if let Some(err) = self_.assert_in_bounds(msg.x, msg.y) {
-    return Err(err);
-  }
-
+  self_.assert_in_bounds(msg.x, msg.y)?;
   *self_.cell_ref(msg.x, msg.y) = msg.color;
 
   for addr in &self_.listeners {

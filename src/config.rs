@@ -12,6 +12,7 @@ pub struct Config {
 #[derive(Debug, Deserialize)]
 pub struct ServerConfig {
   pub address: SocketAddr,
+  pub static_files: PathBuf,
 }
 
 #[derive(Debug, Deserialize)]
