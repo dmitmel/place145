@@ -1,8 +1,7 @@
 use canvas::Coord;
 
-use std::fs;
 use std::net::SocketAddr;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -26,9 +25,4 @@ pub struct CanvasConfig {
 pub struct CanvasSaveConfig {
   pub interval: u64,
   pub path: PathBuf,
-}
-
-pub fn load(path: &Path) -> Config {
-  let bytes = fs::read(path).unwrap();
-  serde_json::from_slice(&bytes).unwrap()
 }

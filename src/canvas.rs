@@ -8,7 +8,7 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use actix::prelude::*;
 
 use config::CanvasConfig;
-use run_fallible;
+use try_run;
 use websocket::Ws;
 
 pub type Coord = u16;
@@ -24,6 +24,8 @@ pub struct Canvas {
 
 impl Canvas {
   pub fn load(config: CanvasConfig) -> Fallible<Self> {
+    info!("loading canvas data from {:?}", config.save.path);
+
     let mut file: File = OpenOptions::new()
       .read(true)
       .write(true)
@@ -65,7 +67,9 @@ impl Actor for Canvas {
   fn started(&mut self, ctx: &mut Self::Context) {
     let save_interval = Duration::from_millis(self.config.save.interval);
     ctx.run_interval(save_interval, |self_, _ctx| {
-      run_fallible(|| {
+      try_run(|| {
+        debug!("saving canvas data");
+
         let mut file = &self_.file;
         file.seek(SeekFrom::Start(0)).unwrap();
         file.set_len(0).unwrap();
