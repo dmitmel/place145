@@ -1,3 +1,5 @@
+use log::*;
+
 use failure::{Fallible, ResultExt};
 use std::collections::HashSet;
 use std::time::Duration;
@@ -9,9 +11,9 @@ use actix::actors::signal::{self, ProcessSignals, Signal, SignalType};
 use actix::prelude::*;
 use futures::Future;
 
-use config::CanvasConfig;
-use try_run;
-use websocket::Client;
+use crate::config::CanvasConfig;
+use crate::try_run;
+use crate::websocket::Client;
 
 pub type Coord = u16;
 pub type Color = u8;
@@ -80,10 +82,7 @@ impl Canvas {
 
     service_addr
       .send(signal::Subscribe(ctx.address().recipient()))
-      .then(|result| {
-        result.unwrap();
-        Ok(())
-      })
+      .map_err(|send_error| panic!(send_error))
       .into_actor(self)
       .wait(ctx);
   }

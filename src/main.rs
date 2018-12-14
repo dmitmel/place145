@@ -1,20 +1,4 @@
-#[macro_use]
-extern crate log;
-extern crate env_logger;
-
-#[macro_use]
-extern crate failure;
-
-extern crate actix;
-extern crate actix_derive;
-extern crate actix_web;
-extern crate futures;
-
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-extern crate bincode;
-extern crate serde_json;
+use log::*;
 
 #[macro_use]
 mod macros;
@@ -23,7 +7,7 @@ mod canvas;
 mod config;
 mod websocket;
 
-use failure::{Error, Fallible, ResultExt};
+use failure::{bail, Error, Fallible, ResultExt};
 
 use std::env;
 use std::ffi::OsString;
@@ -33,8 +17,8 @@ use std::path::PathBuf;
 use actix::prelude::*;
 use actix_web::{middleware, server, ws, App};
 
-use canvas::Canvas;
-use config::*;
+use self::canvas::Canvas;
+use self::config::*;
 
 pub type State = Addr<Canvas>;
 
@@ -47,7 +31,7 @@ fn main() {
 
     let Config { server: server_config, canvas: canvas_config } = config;
 
-    let system = actix::System::new("http-server");
+    let system = System::new("http-server");
     let canvas_addr = start_canvas_actor(canvas_config);
 
     let static_files_path = server_config.static_files;
