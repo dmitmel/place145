@@ -80,6 +80,7 @@ enum ResponsePacket {
 }
 
 fn send_packet(packet: ResponsePacket, ctx: &mut Context) {
+  info!("sending packet {:?}", packet);
   ctx.binary(bincode::config().big_endian().serialize(&packet).unwrap());
 }
 
@@ -97,6 +98,8 @@ impl Client {
           return;
         }
       };
+
+    info!("received packet {:?}", packet);
 
     use self::RequestPacket::*;
     match packet {
