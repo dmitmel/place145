@@ -1,4 +1,6 @@
-use canvas::Coord;
+use serde_derive::*;
+
+use crate::canvas::Coord;
 
 use std::net::SocketAddr;
 use std::path::PathBuf;

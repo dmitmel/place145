@@ -1,10 +1,12 @@
+use log::*;
+use serde_derive::*;
+
 use actix::prelude::*;
 use actix_web::ws;
-
 use futures::Future;
 
-use canvas::*;
-use State;
+use crate::canvas::*;
+use crate::State;
 
 #[derive(Debug)]
 pub struct Client;
