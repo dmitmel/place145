@@ -33,7 +33,7 @@ fn main() {
     let system = System::new("http-server");
     let canvas_addr = start_canvas_actor(canvas_config);
 
-    let static_files_path = server_config.static_files;
+    let static_files_config = server_config.static_files;
     let http_server = server::new(move || {
       App::with_state(canvas_addr.clone())
         .middleware(middleware::Logger::new(r#"%a "%r" %s, %b bytes, %D ms"#))
@@ -42,10 +42,10 @@ fn main() {
           r.f(|req| ws::start(req, websocket::Client))
         })
         .handler(
-          "/",
-          actix_web::fs::StaticFiles::new(&static_files_path)
+          &static_files_config.base_url,
+          actix_web::fs::StaticFiles::new(&static_files_config.path)
             .unwrap()
-            .index_file("index.html"),
+            .index_file(static_files_config.index_file.clone()),
         )
     });
 

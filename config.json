@@ -1,7 +1,11 @@
 {
   "server": {
     "address": "0.0.0.0:8080",
-    "static_files": "frontend/build"
+    "static_files": {
+      "path": "frontend/build",
+      "base_url": "/",
+      "index_file": "index.html"
+    }
   },
   "canvas": {
     "width": 64,
