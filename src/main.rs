@@ -7,10 +7,9 @@ mod canvas;
 mod config;
 mod websocket;
 
-use failure::{bail, Error, Fallible, ResultExt};
+use failure::{Error, Fallible, ResultExt};
 
 use std::env;
-use std::ffi::OsString;
 use std::fs;
 use std::path::PathBuf;
 
@@ -26,7 +25,7 @@ fn main() {
   try_run(|| {
     init_logger()?;
 
-    let config_path = get_config_path()?;
+    let config_path = PathBuf::from("config.json");
     let config = load_config(config_path)?;
 
     let Config { server: server_config, canvas: canvas_config } = config;
@@ -66,19 +65,6 @@ fn init_logger() -> Fallible<()> {
   env::set_var("RUST_LOG", "info,place145=debug");
   env_logger::try_init().context("couldn't initialize logger")?;
   Ok(())
-}
-
-fn get_config_path() -> Fallible<PathBuf> {
-  let args: Vec<OsString> = env::args_os().collect();
-  debug!("command line arguments: {:?}", args);
-
-  if args.len() == 2 {
-    let config_path = &args[1];
-    Ok(PathBuf::from(config_path))
-  } else {
-    let executable_path = &args[0];
-    bail!("usage: {} path/to/config.json", executable_path.to_string_lossy())
-  }
 }
 
 fn load_config(path: PathBuf) -> Fallible<Config> {
