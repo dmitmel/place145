@@ -88,7 +88,7 @@ impl Canvas {
   }
 
   fn save(&self) -> Fallible<()> {
-    debug!("saving canvas data");
+    info!("saving canvas data");
 
     let mut file = &self.file;
     file.seek(SeekFrom::Start(0)).unwrap();
