@@ -3,13 +3,19 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 
 import React from 'react';
+import PropTypes from 'prop-types';
 import './PanZoom.scss';
 
 const SCROLL_ZOOM_SENSITIVITY = 0.01;
+const CLICK_THRESHOLD = 4;
 
 const getMouseCoords = event => ({ x: event.clientX, y: event.clientY });
 
 export default class PanZoom extends React.Component {
+  static propTypes = {
+    onClick: PropTypes.func.isRequired,
+  };
+
   state = { x: 0, y: 0, scale: 1 };
   stateBeforePan = this.state;
   mouseBeforePan = { x: 0, y: 0 };
@@ -65,6 +71,26 @@ export default class PanZoom extends React.Component {
         scale: newScale,
       };
     });
+  };
+
+  onClick = ({ nativeEvent: event }) => {
+    const { state } = this;
+    const { onClick } = this.props;
+
+    const mouse = getMouseCoords(event);
+
+    const child = this.childRef.current;
+    const topLeftCorner = {
+      x: state.x - (state.scale * child.clientWidth) / 2,
+      y: state.y - (state.scale * child.clientHeight) / 2,
+    };
+
+    const x = Math.floor((mouse.x - topLeftCorner.x) / state.scale);
+    const y = Math.floor((mouse.y - topLeftCorner.y) / state.scale);
+
+    const dx = state.x - this.stateBeforePan.x;
+    const dy = state.y - this.stateBeforePan.y;
+    if (dx * dx + dy * dy <= CLICK_THRESHOLD * CLICK_THRESHOLD) onClick(x, y);
   };
 
   adjustScale(scale) {
