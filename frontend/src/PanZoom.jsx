@@ -5,10 +5,12 @@
 import React from 'react';
 import './PanZoom.scss';
 
+const SCROLL_ZOOM_SENSITIVITY = 0.01;
+
 const getMouseCoords = event => ({ x: event.clientX, y: event.clientY });
 
 export default class PanZoom extends React.Component {
-  state = { x: 0, y: 0 };
+  state = { x: 0, y: 0, scale: 1 };
   stateBeforePan = this.state;
   mouseBeforePan = { x: 0, y: 0 };
 
@@ -37,18 +39,35 @@ export default class PanZoom extends React.Component {
     document.removeEventListener('mouseup', this.onDragStop);
   };
 
+  onZoom = ({ nativeEvent: event }) => {
+    this.setState(state => {
+      const newScale =
+        state.scale * (1 - event.deltaY * SCROLL_ZOOM_SENSITIVITY);
+
+      const zoomFactor = newScale / state.scale;
+      const mouse = getMouseCoords(event);
+
+      return {
+        x: mouse.x - zoomFactor * (mouse.x - state.x),
+        y: mouse.y - zoomFactor * (mouse.y - state.y),
+        scale: newScale,
+      };
+    });
+  };
+
   render() {
     const { children } = this.props;
-    const { x, y } = this.state;
+    const { x, y, scale } = this.state;
 
     return (
       <div
         className="PanZoom container"
         ref={this.containerRef}
-        onMouseDown={this.onDragStart}>
+        onMouseDown={this.onDragStart}
+        onWheel={this.onZoom}>
         <div
           style={{
-            transform: `translate(${x}px,${y}px)`,
+            transform: `translate(-50%,-50%) translate(${x}px,${y}px) scale(${scale})`,
           }}
           ref={this.childRef}
           onClick={this.onClick}>
