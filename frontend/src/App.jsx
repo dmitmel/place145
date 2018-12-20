@@ -1,6 +1,7 @@
 import React from 'react';
 import { width, height } from './config';
 import CanvasRenderer from './CanvasRenderer';
+import PanZoom from './PanZoom';
 import './App.scss';
 
 export default class App extends React.Component {
@@ -25,6 +26,10 @@ export default class App extends React.Component {
   }
 
   render() {
-    return <CanvasRenderer ref={this.canvasRef} />;
+    return (
+      <PanZoom>
+        <CanvasRenderer ref={this.canvasRef} />
+      </PanZoom>
+    );
   }
 }
