@@ -41,8 +41,9 @@ export default class PanZoom extends React.Component {
 
   onZoom = ({ nativeEvent: event }) => {
     this.setState(state => {
-      const newScale =
-        state.scale * (1 - event.deltaY * SCROLL_ZOOM_SENSITIVITY);
+      const newScale = this.adjustScale(
+        state.scale * (1 - event.deltaY * SCROLL_ZOOM_SENSITIVITY),
+      );
 
       const zoomFactor = newScale / state.scale;
       const mouse = getMouseCoords(event);
@@ -54,6 +55,20 @@ export default class PanZoom extends React.Component {
       };
     });
   };
+
+  adjustScale(scale) {
+    const container = this.containerRef.current;
+    const child = this.childRef.current;
+
+    const isLandscape = container.clientWidth > container.clientHeight;
+
+    const maxScale =
+      (isLandscape ? container.clientHeight : container.clientWidth) / 2;
+    const minScale =
+      maxScale / (isLandscape ? child.clientHeight : child.clientWidth);
+
+    return Math.max(minScale, Math.min(scale, maxScale));
+  }
 
   render() {
     const { children } = this.props;
