@@ -1,15 +1,20 @@
 import React from 'react';
-import { width, height } from './config';
+import { width, height, palette } from './config';
 import CanvasRenderer from './CanvasRenderer';
 import PanZoom from './PanZoom';
+import ColorPicker from './ColorPicker';
 import './App.scss';
 
 export default class App extends React.Component {
+  state = { selectedColor: Math.floor(Math.random() * palette.length) };
+
   canvasRef = React.createRef();
 
   componentDidMount() {
     this.fetchEntireCanvas();
   }
+
+  onColorSelected = color => this.setState({ selectedColor: color });
 
   fetchEntireCanvas() {
     fetch('/api/canvas')
@@ -26,10 +31,15 @@ export default class App extends React.Component {
   }
 
   render() {
+    const { selectedColor } = this.state;
+
     return (
-      <PanZoom>
-        <CanvasRenderer ref={this.canvasRef} />
-      </PanZoom>
+      <>
+        <PanZoom>
+          <CanvasRenderer ref={this.canvasRef} />
+        </PanZoom>
+        <ColorPicker value={selectedColor} onChange={this.onColorSelected} />
+      </>
     );
   }
 }
