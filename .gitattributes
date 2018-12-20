@@ -1,0 +1,3 @@
+# tell GitHub's language analysis service (github/linguist) to ignore the
+# frontend directory so that it reports Rust as the main language
+frontend/* linguist-documentation
