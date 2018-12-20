@@ -17,6 +17,17 @@ export default class PanZoom extends React.Component {
   containerRef = React.createRef();
   childRef = React.createRef();
 
+  componentDidMount() {
+    this.setState(({ scale }) => {
+      const container = this.containerRef.current;
+      return {
+        x: container.clientWidth / 2,
+        y: container.clientHeight / 2,
+        scale: this.adjustScale(scale),
+      };
+    });
+  }
+
   onDragStart = ({ nativeEvent: event }) => {
     this.stateBeforePan = this.state;
     this.mouseBeforePan = getMouseCoords(event);
