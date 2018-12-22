@@ -11,9 +11,9 @@ use actix::actors::signal::{self, ProcessSignals, Signal, SignalType};
 use actix::prelude::*;
 use futures::Future;
 
+use crate::client::Client;
 use crate::config::CanvasConfig;
 use crate::try_run;
-use crate::websocket::Client;
 
 pub type Coord = u16;
 pub type Color = u8;
