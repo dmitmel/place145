@@ -4,8 +4,8 @@ use log::*;
 mod macros;
 mod api;
 mod canvas;
+mod client;
 mod config;
-mod websocket;
 
 use failure::{Error, Fallible, ResultExt};
 
@@ -38,9 +38,7 @@ fn main() {
       App::with_state(canvas_addr.clone())
         .middleware(middleware::Logger::new(r#"%a "%r" %s, %b bytes, %D ms"#))
         .resource("/api/canvas", |r| r.with(api::canvas))
-        .resource("/api/stream", |r| {
-          r.f(|req| ws::start(req, websocket::Client))
-        })
+        .resource("/api/stream", |r| r.f(|req| ws::start(req, client::Client)))
         .handler(
           &static_files_config.base_url,
           actix_web::fs::StaticFiles::new(&static_files_config.path)
