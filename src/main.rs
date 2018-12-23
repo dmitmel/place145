@@ -2,10 +2,10 @@ use log::*;
 
 #[macro_use]
 mod macros;
-mod api;
 mod canvas;
 mod client;
 mod config;
+mod server;
 
 use failure::{Error, Fallible, ResultExt};
 
@@ -14,10 +14,8 @@ use std::fs;
 use std::path::PathBuf;
 
 use actix::prelude::*;
-use actix_web::{middleware, server, ws, App};
 
 use self::canvas::Canvas;
-use self::client::Client;
 use self::config::*;
 
 pub type State = Addr<Canvas>;
@@ -34,25 +32,7 @@ fn main() {
     let system = System::new("http-server");
     let canvas_addr = start_canvas_actor(canvas_config);
 
-    let static_files_config = server_config.static_files;
-    let http_server = server::new(move || {
-      App::with_state(canvas_addr.clone())
-        .middleware(middleware::Logger::new(r#"%a "%r" %s, %b bytes, %D ms"#))
-        .resource("/api/canvas", |r| r.with(api::canvas))
-        .resource("/api/stream", |r| r.f(|req| ws::start(req, Client::new())))
-        .handler(
-          &static_files_config.base_url,
-          actix_web::fs::StaticFiles::new(&static_files_config.path)
-            .unwrap()
-            .index_file(static_files_config.index_file.clone()),
-        )
-    });
-
-    info!("starting HTTP server");
-    http_server
-      .bind(server_config.address)
-      .context("couldn't bind server socket")?
-      .start();
+    server::start(server_config, canvas_addr)?;
 
     let exit_code = system.run();
     debug!("exiting with code {}", exit_code);
