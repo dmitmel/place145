@@ -17,6 +17,7 @@ use actix::prelude::*;
 use actix_web::{middleware, server, ws, App};
 
 use self::canvas::Canvas;
+use self::client::Client;
 use self::config::*;
 
 pub type State = Addr<Canvas>;
@@ -38,7 +39,7 @@ fn main() {
       App::with_state(canvas_addr.clone())
         .middleware(middleware::Logger::new(r#"%a "%r" %s, %b bytes, %D ms"#))
         .resource("/api/canvas", |r| r.with(api::canvas))
-        .resource("/api/stream", |r| r.f(|req| ws::start(req, client::Client)))
+        .resource("/api/stream", |r| r.f(|req| ws::start(req, Client::new())))
         .handler(
           &static_files_config.base_url,
           actix_web::fs::StaticFiles::new(&static_files_config.path)

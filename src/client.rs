@@ -9,21 +9,34 @@ use crate::canvas::*;
 use crate::State;
 
 #[derive(Debug)]
-pub struct Client;
+pub struct Client {
+  remote_addr: String,
+}
+
+#[allow(clippy::new_without_default_derive)]
+impl Client {
+  pub fn new() -> Self { Self { remote_addr: "<unknown>".to_string() } }
+}
 
 type Context = ws::WebsocketContext<Client, State>;
 
 impl Actor for Client {
   type Context = Context;
 
-  fn started(&mut self, ctx: &mut Self::Context) {
+  fn started(&mut self, ctx: &mut Context) {
+    if let Some(addr) = ctx.request().connection_info().remote() {
+      self.remote_addr = addr.to_string();
+    }
+
+    info!("{} connected", self.remote_addr);
+
     let addr = ctx.address();
     self.send_to_canvas(ListenerConnected { addr }, ctx, |_, _, _| {
       actix::fut::ok(())
     });
   }
 
-  fn stopping(&mut self, ctx: &mut Self::Context) -> Running {
+  fn stopping(&mut self, ctx: &mut Context) -> Running {
     let addr = ctx.address();
     self.send_to_canvas(ListenerDisconnected { addr }, ctx, |_, _, _| {
       actix::fut::ok(())
@@ -33,7 +46,7 @@ impl Actor for Client {
 }
 
 impl Client {
-  pub fn send_to_canvas<M: 'static, I: 'static, F: 'static, B: 'static>(
+  fn send_to_canvas<M: 'static, I: 'static, F: 'static, B: 'static>(
     &mut self,
     msg: M,
     ctx: &mut Context,
@@ -57,11 +70,24 @@ impl Client {
 }
 
 impl StreamHandler<ws::Message, ws::ProtocolError> for Client {
-  fn handle(&mut self, msg: ws::Message, ctx: &mut Self::Context) {
+  fn handle(&mut self, msg: ws::Message, ctx: &mut Context) {
     match msg {
       ws::Message::Binary(binary) => self.handle_packet(binary.as_ref(), ctx),
       ws::Message::Ping(msg) => ctx.pong(&msg),
-      _ => info!("{:?}", msg),
+      ws::Message::Close(reason) => {
+        let addr = &self.remote_addr;
+        if let Some(ws::CloseReason { code, description }) = reason {
+          let code: u16 = code.into();
+          if let Some(description) = description {
+            info!("{} disconnected with code {}: {}", addr, code, description);
+          } else {
+            info!("{} disconnected with code {}", addr, code);
+          }
+        } else {
+          info!("{} disconnected", addr);
+        }
+      }
+      _ => {}
     }
   }
 }
@@ -79,27 +105,27 @@ enum ResponsePacket {
   CellUpdated { x: Coord, y: Coord, color: Color },
 }
 
-fn send_packet(packet: ResponsePacket, ctx: &mut Context) {
-  info!("sending packet {:?}", packet);
-  ctx.binary(bincode::config().big_endian().serialize(&packet).unwrap());
-}
-
-fn send_error(message: &str, ctx: &mut Context) {
-  send_packet(ResponsePacket::Error { message: message.to_string() }, ctx)
-}
-
 impl Client {
+  fn send_packet(&self, packet: ResponsePacket, ctx: &mut Context) {
+    info!("sending packet {:?} to {}", packet, self.remote_addr);
+    ctx.binary(bincode::config().big_endian().serialize(&packet).unwrap());
+  }
+
+  fn send_error(&self, msg: &str, ctx: &mut Context) {
+    self.send_packet(ResponsePacket::Error { message: msg.to_string() }, ctx)
+  }
+
   fn handle_packet(&mut self, bytes: &[u8], ctx: &mut Context) {
     let packet: RequestPacket =
       match bincode::config().big_endian().deserialize(&bytes[..]) {
         Ok(packet) => packet,
         Err(error) => {
-          send_error(&error.to_string(), ctx);
+          self.send_error(&error.to_string(), ctx);
           return;
         }
       };
 
-    info!("received packet {:?}", packet);
+    info!("received packet {:?} from {}", packet, self.remote_addr);
 
     use self::RequestPacket::*;
     match packet {
@@ -109,26 +135,28 @@ impl Client {
   }
 
   fn get_cell(&mut self, x: Coord, y: Coord, ctx: &mut Context) {
-    self.send_to_canvas(GetCell { x, y }, ctx, move |result, _, ctx| {
-      match result.unwrap() {
-        Ok(color) => send_packet(ResponsePacket::CellData { x, y, color }, ctx),
-        Err(error) => send_error(&error, ctx),
+    self.send_to_canvas(GetCell { x, y }, ctx, move |res, self_, ctx| {
+      match res.unwrap() {
+        Ok(color) => {
+          self_.send_packet(ResponsePacket::CellData { x, y, color }, ctx)
+        }
+        Err(error) => self_.send_error(&error, ctx),
       }
       actix::fut::ok(())
     });
   }
 
   fn set_cell(&mut self, x: Coord, y: Coord, color: Color, ctx: &mut Context) {
-    self.send_to_canvas(UpdateCell { x, y, color }, ctx, |result, _, ctx| {
-      if let Err(error) = result.unwrap() {
-        send_error(&error, ctx)
+    self.send_to_canvas(UpdateCell { x, y, color }, ctx, |res, self_, ctx| {
+      if let Err(error) = res.unwrap() {
+        self_.send_error(&error, ctx)
       }
       actix::fut::ok(())
     })
   }
 }
 
-actix_handler!(CellUpdated, Client, |_, msg, ctx| {
+actix_handler!(CellUpdated, Client, |self_, msg, ctx| {
   let CellUpdated { x, y, color } = msg;
-  send_packet(ResponsePacket::CellUpdated { x, y, color }, ctx);
+  self_.send_packet(ResponsePacket::CellUpdated { x, y, color }, ctx);
 });
