@@ -46,7 +46,7 @@ export default class App extends React.Component {
   }
 
   connectToWebsocketAPI() {
-    const ws = new WebSocket(`ws://${window.location.host}/api/stream`);
+    const ws = new WebSocket(`ws://${window.location.host}/api/connect`);
     ws.binaryType = 'arraybuffer';
 
     ws.addEventListener('message', event => {
