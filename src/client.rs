@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use log::*;
 use serde_derive::*;
 
@@ -8,14 +10,23 @@ use futures::Future;
 use crate::canvas::*;
 use crate::State;
 
+const PING_INTERVAL: Duration = Duration::from_secs(5);
+const PING_TIMEOUT: Duration = Duration::from_secs(10);
+
 #[derive(Debug)]
 pub struct Client {
   remote_addr: String,
+  last_pong_time: Instant,
 }
 
-#[allow(clippy::new_without_default_derive)]
+#[allow(clippy::new_without_default)]
 impl Client {
-  pub fn new() -> Self { Self { remote_addr: "<unknown>".to_string() } }
+  pub fn new() -> Self {
+    Self {
+      remote_addr: "<unknown>".to_string(),
+      last_pong_time: Instant::now(),
+    }
+  }
 }
 
 type Context = ws::WebsocketContext<Client, State>;
@@ -34,6 +45,8 @@ impl Actor for Client {
     self.send_to_canvas(ListenerConnected { addr }, ctx, |_, _, _| {
       actix::fut::ok(())
     });
+
+    self.start_sending_pings(ctx);
   }
 
   fn stopping(&mut self, ctx: &mut Context) -> Running {
@@ -46,6 +59,21 @@ impl Actor for Client {
 }
 
 impl Client {
+  fn start_sending_pings(&self, ctx: &mut Context) {
+    ctx.run_interval(PING_INTERVAL, |self_, ctx| {
+      if Instant::now().duration_since(self_.last_pong_time) > PING_TIMEOUT {
+        info!("'ping' to {} timed out", self_.remote_addr);
+        ctx.close(Some(ws::CloseReason {
+          code: ws::CloseCode::Abnormal,
+          description: Some("ping timed out".to_string()),
+        }));
+      } else {
+        info!("sending 'ping' to {}", self_.remote_addr);
+        ctx.ping("");
+      }
+    });
+  }
+
   fn send_to_canvas<M: 'static, I: 'static, F: 'static, B: 'static>(
     &mut self,
     msg: M,
@@ -73,7 +101,13 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for Client {
   fn handle(&mut self, msg: ws::Message, ctx: &mut Context) {
     match msg {
       ws::Message::Binary(binary) => self.handle_packet(binary.as_ref(), ctx),
+
       ws::Message::Ping(msg) => ctx.pong(&msg),
+      ws::Message::Pong(_) => {
+        info!("received 'pong' from {}", self.remote_addr);
+        self.last_pong_time = Instant::now();
+      }
+
       ws::Message::Close(reason) => {
         let addr = &self.remote_addr;
         if let Some(ws::CloseReason { code, description }) = reason {
@@ -87,6 +121,7 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for Client {
           info!("{} disconnected", addr);
         }
       }
+
       _ => {}
     }
   }
