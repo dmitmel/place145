@@ -16,7 +16,7 @@ pub fn start(config: ServerConfig, state: State) -> Fallible<()> {
     App::with_state(state.clone())
       .middleware(middleware::Logger::new(r#"%a "%r" %s, %b bytes, %D ms"#))
       .resource("/api/canvas", |r| r.with(api_canvas))
-      .resource("/api/stream", |r| r.with(api_stream))
+      .resource("/api/connect", |r| r.with(api_stream))
       .handler(
         &static_files_config.base_url,
         actix_web::fs::StaticFiles::new(&static_files_config.path)
