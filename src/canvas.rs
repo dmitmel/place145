@@ -82,7 +82,7 @@ impl Canvas {
 
     service_addr
       .send(signal::Subscribe(ctx.address().recipient()))
-      .map_err(|send_error| panic!(send_error))
+      .map_err(|send_error: MailboxError| panic!(send_error))
       .into_actor(self)
       .wait(ctx);
   }
@@ -105,7 +105,7 @@ actix_handler!(Signal, Canvas, |self_, msg, _| match msg.0 {
   SignalType::Int | SignalType::Term | SignalType::Quit => {
     try_run(|| self_.save())
   }
-  _ => (),
+  _ => {},
 });
 
 #[derive(Debug, Message)]
