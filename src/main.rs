@@ -26,12 +26,11 @@ fn main() {
 
     let config_path = PathBuf::from("config.json");
     let config = load_config(config_path)?;
-
     let Config { server: server_config, canvas: canvas_config } = config;
 
     let system = System::new("http-server");
-    let canvas_addr = start_canvas_actor(canvas_config);
 
+    let canvas_addr = start_canvas_actor(canvas_config);
     server::start(server_config, canvas_addr)?;
 
     let exit_code = system.run();
@@ -41,7 +40,9 @@ fn main() {
 }
 
 fn init_logger() -> Fallible<()> {
-  env::set_var("RUST_LOG", "info,place145=debug");
+  if let Err(env::VarError::NotPresent) = env::var("RUST_LOG") {
+    env::set_var("RUST_LOG", "info,place145=debug");
+  }
   env_logger::try_init().context("couldn't initialize logger")?;
   Ok(())
 }
