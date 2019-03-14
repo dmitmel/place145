@@ -18,7 +18,7 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // constructs a URL (relative to the base URL of static files) of an asset from
 // the given components
-function assetPath(filename, hash, extension) {
+function assetURL(filename, hash, extension) {
   let fullPath = `assets/${filename}`;
 
   if (NODE_ENV === 'production') fullPath += `.${hash}`;
@@ -27,7 +27,6 @@ function assetPath(filename, hash, extension) {
   return fullPath;
 }
 
-// returns an absolute version of a path that is relative to this file
 function resolve(...paths) {
   return path.resolve(__dirname, ...paths);
 }
@@ -48,8 +47,8 @@ module.exports = blocks.createConfig([
   blocks.entryPoint(resolve('src', 'index')),
 
   blocks.setOutput({
-    filename: assetPath('[name]', '[chunkhash:8]', 'js'),
-    chunkFilename: assetPath('[name]', '[chunkhash:8]', 'chunk.js'),
+    filename: assetURL('[name]', '[chunkhash:8]', 'js'),
+    chunkFilename: assetURL('[name]', '[chunkhash:8]', 'chunk.js'),
     publicPath: serverConfig.server.static_files.base_url,
   }),
   blocks.env('production', [
@@ -68,27 +67,27 @@ module.exports = blocks.createConfig([
       // disable style-loader because mini-css-extract-plugin is used instead
       styleLoader: false,
     }),
-    // replace this with the official sass block when webpack-blocks 2.0 is released
+    // TODO: replace this with the official sass block when webpack-blocks 2.0 is released
     addLoader('sass-loader', { sourceMap: true }),
   ]),
   blocks.addPlugins([
     new MiniCssExtractPlugin({
-      filename: assetPath('[name]', '[chunkhash:8]', 'css'),
-      chunkFilename: assetPath('[name]', '[chunkhash:8]', 'chunk.css'),
+      filename: assetURL('[name]', '[chunkhash:8]', 'css'),
+      chunkFilename: assetURL('[name]', '[chunkhash:8]', 'chunk.css'),
     }),
   ]),
 
   blocks.match(IMAGE_FILES, [
     assets.url({
       limit: 8 * 1024, // 8 KiB
-      name: assetPath('assets/[name]', '[hash:8]', '[ext]'),
+      name: assetURL('assets/[name]', '[hash:8]', '[ext]'),
     }),
   ]),
 
   blocks.match(
     undefined,
     { exclude: [JS_FILES, STYLESHEET_FILES, IMAGE_FILES, /\.(json|html)$/] },
-    [assets.file({ name: assetPath('assets/[name]', '[hash:8]', '[ext]') })],
+    [assets.file({ name: assetURL('assets/[name]', '[hash:8]', '[ext]') })],
   ),
 
   blocks.setEnv({
