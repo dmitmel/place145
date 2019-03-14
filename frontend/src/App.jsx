@@ -3,11 +3,12 @@ import { width, height, palette } from './config';
 import CanvasRenderer from './CanvasRenderer';
 import PanZoom from './PanZoom';
 import ColorPicker from './ColorPicker';
-import byteToString from './byteToString';
 import './App.scss';
 
 function packetToString(packet) {
-  return Array.prototype.map.call(packet, byteToString).join(' ');
+  return Array.prototype.map
+    .call(packet, byte => `0${byte.toString(16)}`.slice(-2))
+    .join(' ');
 }
 
 export default class App extends React.Component {

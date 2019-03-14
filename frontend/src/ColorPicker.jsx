@@ -1,7 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { palette } from './config';
-import byteToString from './byteToString';
 import './ColorPicker.scss';
 
 ColorPicker.propTypes = {
@@ -33,15 +32,14 @@ Color.propTypes = {
 };
 
 function Color({ value, selected, onSelect }) {
-  const hex = value.map(byteToString).join('');
-  const id = `color${hex}`;
+  const id = `color${value.join('-')}`;
 
   return (
     <label
       key={value}
       htmlFor={id}
       className={selected ? 'selected' : null}
-      style={{ backgroundColor: `#${hex}` }}>
+      style={{ backgroundColor: `rgb(${value})` }}>
       <input
         type="radio"
         name="color"
