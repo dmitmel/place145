@@ -11,7 +11,7 @@ pub fn start(config: ServerConfig, state: State) -> Fallible<()> {
     App::with_state(state.clone())
       .middleware(middleware::Logger::new(r#"%a "%r" %s, %b bytes, %D ms"#))
       .resource("/api/canvas", |r| r.with(routes::api::canvas))
-      .resource("/api/connect", |r| r.with(routes::api::stream))
+      .resource("/api/connect", |r| r.with(routes::api::connect))
       .handler(
         &static_files_config.base_url,
         actix_web::fs::StaticFiles::new(&static_files_config.path)
@@ -50,7 +50,7 @@ mod routes {
       )
     }
 
-    pub fn stream(req: HttpRequest<State>) -> actix_web::Result<HttpResponse> {
+    pub fn connect(req: HttpRequest<State>) -> actix_web::Result<HttpResponse> {
       ws::start(&req, Client::new())
     }
   }
