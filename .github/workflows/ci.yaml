@@ -1,0 +1,61 @@
+name: CI
+on: [push, pull_request, workflow_dispatch]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+
+      - name: install Rust toolchain
+        id: install_rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - name: install Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: '15.x'
+
+      - name: setup Rust cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: |
+            v1/${{ github.workflow }}/${{ runner.os }}/rust/${{ steps.install_rust.outputs.rustc_hash }}/${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            v1/${{ github.workflow }}/${{ runner.os }}/rust/${{ steps.install_rust.outputs.rustc_hash }}/
+
+      - name: get Yarn cache directory
+        id: yarn_cache_dir
+        run: echo "::set-output name=dir::$(yarn cache dir)"
+
+      - name: setup Node.js cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ${{ steps.yarn_cache_dir.outputs.dir }}
+          key: |
+            v1/${{ github.workflow }}/${{ runner.os }}/yarn/${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            v1/${{ github.workflow }}/${{ runner.os }}/yarn/
+
+      - run: cargo check  --verbose --workspace --all-targets
+      - run: cargo build  --verbose --workspace --all-targets
+      - run: cargo test   --verbose --workspace
+      - run: cargo fmt    --verbose --all       -- --check
+      - run: cargo clippy --verbose --workspace
+
+      - run: yarn install --frozen-lockfile
+      - run: yarn run build
