@@ -105,7 +105,7 @@ actix_handler!(Signal, Canvas, |self_, msg, _| match msg.0 {
   SignalType::Int | SignalType::Term | SignalType::Quit => {
     try_run(|| self_.save())
   }
-  _ => {},
+  _ => {}
 });
 
 #[derive(Debug, Message)]
