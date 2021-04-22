@@ -1,5 +1,3 @@
-/* eslint-disable no-bitwise */
-
 export const width = process.env.CANVAS_WIDTH;
 export const height = process.env.CANVAS_HEIGHT;
 
