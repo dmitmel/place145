@@ -4,7 +4,7 @@ module.exports = api => ({
       '@babel/preset-env',
       {
         targets: api.env('test') ? { node: 'current' } : ['>0.1%', 'not dead'],
-        modules: api.env('test') && 'commonjs',
+        modules: api.env('test') ? 'commonjs' : false,
       },
     ],
     ['@babel/preset-react', { development: api.env(['development', 'test']) }],
