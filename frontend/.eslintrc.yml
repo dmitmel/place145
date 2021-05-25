@@ -1,28 +1,9 @@
-extends: eslint-config-dmitmel/presets/browser
-
+extends:
+  - eslint-config-dmitmel/presets/browser
+  - eslint-config-dmitmel/presets/babel-addon
 parser: '@babel/eslint-parser'
 parserOptions:
   sourceType: module
-plugins:
-  - '@babel/eslint-plugin'
-
 env:
   browser: true
   node: true
-
-rules:
-  # TODO: Integrate these overrides into the ESLint config
-  new-cap: off
-  '@babel/new-cap':
-    - error
-    - properties: true
-      newIsCap: true
-      capIsNew: true
-  no-invalid-this: off
-  '@babel/no-invalid-this': error
-  no-unused-expressions: off
-  '@babel/no-unused-expressions': warn
-  object-curly-spacing: off
-  '@babel/object-curly-spacing': off
-  semi: off
-  '@babel/semi': off
