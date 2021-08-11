@@ -82,7 +82,7 @@ impl Canvas {
 
     service_addr
       .send(signal::Subscribe(ctx.address().recipient()))
-      .map_err(|send_error: MailboxError| panic!(send_error))
+      .map_err(|send_error: MailboxError| std::panic::panic_any(send_error))
       .into_actor(self)
       .wait(ctx);
   }

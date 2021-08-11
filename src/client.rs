@@ -90,7 +90,7 @@ impl Client {
       let canvas_addr = ctx.state();
       canvas_addr.send(msg)
     }
-    .map_err(|send_error: MailboxError| panic!(send_error))
+    .map_err(|send_error: MailboxError| std::panic::panic_any(send_error))
     .into_actor(self)
     .then(then)
     .wait(ctx)
@@ -152,7 +152,7 @@ impl Client {
 
   fn handle_packet(&mut self, bytes: &[u8], ctx: &mut Context) {
     let packet: RequestPacket =
-      match bincode::config().big_endian().deserialize(&bytes[..]) {
+      match bincode::config().big_endian().deserialize(bytes) {
         Ok(packet) => packet,
         Err(error) => {
           self.send_error(&error.to_string(), ctx);

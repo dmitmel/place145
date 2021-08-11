@@ -45,7 +45,7 @@ mod routes {
       Box::new(
         canvas_addr
           .send(GetCanvas)
-          .map_err(|send_error: MailboxError| panic!(send_error))
+          .map_err(|send_error: MailboxError| std::panic::panic_any(send_error))
           .map(Binary::from),
       )
     }
