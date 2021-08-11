@@ -81,14 +81,21 @@ module.exports = (_env, { mode }) => ({
     minimizer: [new TerserWebpackPlugin(), new CssMinimizerPlugin()],
   },
   devServer: {
-    publicPath: serverConfig.server.static_files.base_url,
-    index: serverConfig.server.static_files.index_file,
+    devMiddleware: {
+      publicPath: serverConfig.server.static_files.base_url,
+      index: serverConfig.server.static_files.index_file,
+    },
     proxy: {
       '/api': {
         target: `http://${serverConfig.server.address}`,
         ws: true,
       },
     },
-    overlay: true,
+    client: {
+      overlay: {
+        errors: true,
+        warnings: false,
+      },
+    },
   },
 });
